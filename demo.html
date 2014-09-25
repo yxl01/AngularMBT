@@ -1,0 +1,133 @@
+<html>
+<head>
+	<title>TestOptimal Agent: AngularJS</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<LINK REL="SHORTCUT ICON" HREF="favicon.ico">
+	<style>
+		th a { margin-right: 8px; padding-left:5px; padding-right: 5px; border-radius: 5px;}
+		th a:hover { background-color: orange; color: #FFFFFF; }
+		
+	</style>
+</head>
+<body ng-app="Main" ng-controller="mainCtrl">
+	<div>
+		<h3>Model-Based Testing with <a href="https://github.com/angularMBT">AngularMBT</a> / <a href="http://testoptimal.com/">TestOptimal</a></h3>
+		<p>The ideal is that you build a model that describes
+		the application behavior using state diagram (or Finite State Machine)
+		and let <a href="http://testoptimal.com/">TestOptimal</a> generate the 
+		test sequences from the model.  As the model is executed, it sends test
+		sequence (remote command) to your Angular app to perform the testing: 
+		e.g. to click a button, type values into field, verifying text on the page, or
+		to test page flow of your Angular app.
+		</p>
+		To see the demo, click on "Execute" button and watch the test sequence (remote commands)
+		printed to the window.
+	</div>
+	<hr/>
+	<table border="0" width="100%">
+	<tr><td width="1%" nowrap>TestOptimal Server URL: </td>
+		<td><input type="text" ng-model="execReq.svrURL"></input></td>
+		<td align="right">Log Buffer: <input ng-model="execReq.msgMax" size="5"></input>
+			<input type="checkbox" ng-model="execReq.debug"/> Debug
+		</td>
+	</tr>
+	<tr><td with="1%">Model Name: </td>
+		<td><input type="text" ng-model="execReq.modelName"></input></td>
+		<td align="right">
+			<button ng-click="startModel()">Execute</button> 
+			<button ng-click="stopModel()">Stop</button> 
+			<button ng-click="closeModel()">Close</button> 
+			<button ng-click="clearOutput()">Clear Log</button>
+		</td>
+	</tr>
+	<tr>
+		<th colspan="3">
+			<span>
+			<a href="{{AngularMBT.ModelGraph}}" target="_blank">Model Graph</a>
+			<a href="{{AngularMBT.TestCaseGraph}}" target="_blank">Test Case Sequence Graph</a>
+			<a href="{{AngularMBT.TestCaseMSC}}" target="_blank">Test Case Message Sequence Chart (MSC)</a>
+			<a href="{{AngularMBT.CoverageGraph}}" target="_blank">Test Coverage Graph</a>
+			<a href="{{AngularMBT.ExecStatList}}" target="_blank">Exec Stat List</a>
+			</span>
+		</th>
+	</tr>
+	</table>
+	<hr/>
+	<div>
+		<span>Remote Command: {{exeDetails.lastRmtCmd}}</span>
+		<span style="float:right;">Agent {{execReq.agentId}}</span>
+	</div>
+	<div>
+		<ul style="padding-left:0px; margin-left: 0px;">
+			<li ng-repeat="msg in execReq.msgList track by $index">
+				<pre>{{msg}}</pre>
+			</li>
+		</ul>
+	</div>
+    <script src="angular.min.js"></script>
+    <script src="AngularMBT.js"></script>
+    <script>
+		var MainModule = angular.module("Main", ["AngularMBT"]);
+		MainModule.controller("mainCtrl", function($scope, AngularMBT) {
+			$scope.execReq = {
+					modelName: "Demo_RemoteAgent",
+					svrURL: "http://localhost:8888",
+					statDesc: "",
+					msgList: [],
+					msgMax: 100,
+					modelStartWait: 1000,
+					agentID: "",
+					lastRmtCmd: "",
+					debug: false
+				};
+			$scope.AngularMBT = AngularMBT;
+			$scope.seqNum = 0;
+			
+			$scope.startModel = function () {
+				$scope.execReq.msgList.length = 0;
+				AngularMBT.startModel($scope.execReq, function(agentID) {
+					AngularMBT.nextCmd($scope.execCmd);
+				});
+			};
+
+			$scope.stopModel = function () {
+				AngularMBT.stopModel(function() {
+					$scope.execReq.msgList.push("Model Execution Stopped");
+				});
+			};
+			
+			$scope.closeModel = function () {
+				AngularMBT.closeModel(function() {
+					$scope.execReq.msgList.push("Model Closed");
+				});
+			};
+			
+			$scope.execCmd = function (rmtCmd) {
+				if (rmtCmd.action.indexOf("$exitAgent")==0) {
+					AngularMBT.addMsg("Model execution completed");
+					setTimeout($scope.getExecSummary, 4000);
+				}
+				else {
+					$scope.seqNum += 1;
+					AngularMBT.addMsg("Received cmd: " + rmtCmd.action);
+					AngularMBT.cmdDone("success", "received_" + $scope.seqNum);
+					setTimeout (function() { AngularMBT.nextCmd();}, 50);
+				}
+			};
+			
+			$scope.getExecSummary = function () {
+				AngularMBT.getSummary(function(returnData) {
+					AngularMBT.addMsg(returnData);
+				});
+			};
+			
+			$scope.clearOutput = function () {
+				$scope.execReq.msgList.length = 0;
+			};
+			
+		});
+		    
+    </script>
+</body>
+
+</html>
